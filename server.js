@@ -1,19 +1,41 @@
-const { Server } = require('@hocuspocus/server');
-const winston = require('winston');
+import path from 'node:path';
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { Server } from '@hocuspocus/server';
+import winston from 'winston';
+import DailyRotateFile from 'winston-daily-rotate-file';
 
-// Configuración del logger (Winston)
-// Se configurará para enviar los logs tanto a la consola como a un archivo
+// Obtener el directorio actual usando `import.meta.url`
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Construir la ruta de la carpeta 'logs' fuera de src
+const logsDirectory = path.resolve(__dirname, '../logs');
+
+// Asegúrate de que la carpeta 'logs' exista
+if (!fs.existsSync(logsDirectory)) {
+  fs.mkdirSync(logsDirectory); // Crear la carpeta si no existe
+}
+
+// Configuración del logger (Winston) con rotación diaria
 const logger = winston.createLogger({
-  level: 'info', // Nivel mínimo de log (info, warn, error)
+  level: 'info',
   format: winston.format.combine(
-    winston.format.timestamp(), // Agrega un timestamp a cada log
+    winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
     winston.format.printf(({ timestamp, level, message }) => {
       return `${timestamp} [${level.toUpperCase()}]: ${message}`;
     })
   ),
   transports: [
-    new winston.transports.Console(), // Enviar logs a la consola
-    new winston.transports.File({ filename: 'server.log' }), // Guardar logs en un archivo
+    new winston.transports.Console(),
+    new DailyRotateFile({
+      dirname: logsDirectory,
+      filename: 'server-%DATE%.log',
+      datePattern: 'YYYY-MM-DD',
+      zippedArchive: false,
+      maxSize: '20m',
+      maxFiles: '14d', // Guardar logs por 14 días
+    }),
   ],
 });
 
@@ -62,4 +84,3 @@ server.listen(() => {
   // Log en inglés cuando el servidor inicia
   logger.info('Hocuspocus server is listening on port 1234');
 });
-
